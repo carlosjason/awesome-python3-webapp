@@ -21,21 +21,20 @@ async def create_pool(loop,**kw):
 async def select(sql,args,size=None):
     logging.info('SQL: %s'%sql)     
     global _pool
-    with (await _pool) as conn:
-        cur = await conn.cursor(aiomysql.DictCursor)
-        await cur.execute(sql.replace('?','%s'), args or ())
-        if size:
-            rs = await cur.fetchmany(size)
-        else:
-            rs = await cur.fetchall()
-        await cur.close()
+    async with _pool.get() as conn:
+        async with conn.cursor(aiomysql.DictCursor) as cur:
+            await cur.execute(sql.replace('?','%s'), args or ())
+            if size:
+                rs = await cur.fetchmany(size)
+            else:
+                rs = await cur.fetchall()
         logging.info('rows returnd %s'%len(rs))
         return rs
 
         
 async def execute(sql,args):
     logging.info('SQL:%s'%sql)
-    with await _pool as conn:
+    async with _pool.get() as conn:
         try:
             cur = await conn.cursor()
             await cur.execute(sql.replace('?','%s'), args)
@@ -64,28 +63,28 @@ class Field(object):
 
                 
 class StringField(Field):
-    def __init__(self, name=None, primary_key = False, default =None, dd1 = 'varchar(100)'):
-        return super().__init__(name,dd1,primary_key,default)
+    def __init__(self, name=None, primary_key = False, default =None, ddl = 'varchar(100)'):
+        return super().__init__(name,ddl,primary_key,default)
         
-class BoolField(Field):
+class BooleanField(Field):
     def __init__(self,name = None, primary_key =False, default =None):
-        return super().__init__(self,'boolean',primary_key, default)
+        super().__init__(name,'boolean',primary_key, default)
         
 class IntegerField(Field):        
-    def __init__(self, name = None, primary_key =False, default = None):
-        return super().__init__(self,'bigint',primary_key,default)
+    def __init__(self, name = None, primary_key =False, default = 0):
+        super().__init__(name,'bigint',primary_key,default)
         
 class FloatField(Field):
-    def __init__(self, name= None, primary_key = False, default =None):
-        return super().__init__(self,'float', primary_key,default)
+    def __init__(self, name= None, primary_key = False, default =0.0):
+        super().__init__(name,'float', primary_key,default)
 
 class TextField(Field):
     def __init__(self,name = None, primary_key =False, default = None):
-        return super().__init__(self,'text',primary_key, default)
+        super().__init__(name,'text',primary_key, default)
         
        
 class ModelMetaclass(type):
-    def __new(cls,name,bases,attrs):
+    def __new__(cls,name,bases,attrs):
         if name == 'Model':
             return type.__new__(cls,name,bases,attrs)
         tableName = attrs.get('__table__', None) or name
@@ -93,19 +92,19 @@ class ModelMetaclass(type):
         mappings =dict()
         fields =[]
         primary_key = None
-        for k,v in attrs.item():
+        for k,v in attrs.items():
             if isinstance(v,Field):
                 logging.info('found mapping: %s => %s'%(k,v))
                 mappings[k] = v
                 if v.primary_key:
-                    if primary_key == True:
+                    if primary_key:
                         raise RuntimeError('duplicate primay key for field:%s'%k)
                     primary_key = k 
                 else:
-                    field.append(k)
+                    fields.append(k)
         if not primary_key: 
             raise RuntimeError('primary_key not found')
-        for k in mappings.key():
+        for k in mappings.keys():
             attrs.pop(k)
         escaped_fields = list(map(lambda f: '`%s`' %f, fields))
         attrs['__mappings__'] = mappings
@@ -215,66 +214,4 @@ class Model(dict, metaclass = ModelMetaclass):
             if rows != 1:
                 logging.warn('failed to remove by primary_key:affected rows %s'%rows)
             
-        
-                    
- 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+  
