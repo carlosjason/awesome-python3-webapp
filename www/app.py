@@ -43,13 +43,13 @@ async def data_factory(app,handler):
             elif request.content_type.startswith('application/x-www-form-urlencoded'): 
                 request.__data__ = await request.post()
                 logging.info('request form %s'%str(request.__data__))
-            return (await handler(request))
+        return (await handler(request))
     return parse_data            
 
 async def response_factory(app,handler): #controller to viewer
     async def response(request):
         logging.info('Response handler')
-        r = await handler(request)
+        r = await handler(request)  #handler 返回request的类型
         if isinstance(r,web.StreamResponse):
             return r
         if isinstance(r,bytes):
@@ -74,10 +74,10 @@ async def response_factory(app,handler): #controller to viewer
                 return resp
         if isinstance(r,int) and r>=100 and r<600:
             return web.Response(r)
-        if isinstance(r.tuple) and len(r)==2:
+        if isinstance(r,tuple) and len(r)==2:
             t,m=r 
             if isinstance(t,int) and t>=100 and t < 600:
-                return wen.Response(t,str(m))
+                return web.Response(t,str(m))
                 
         resp = web.Response(body = str(r).encode('utf-8'))
         resp.content_type = 'text/plain;charset=utf-8'
@@ -102,9 +102,7 @@ def datetime_filter(t):
 
 async def init(loop):
     await orm.create_pool(loop=loop, host='127.0.0.1', port=3306, user='root', password='password', db='awesome')
-    app = web.Application(loop=loop, middlewares=[
-        logger_factory, response_factory
-    ])
+    app = web.Application(loop=loop, middlewares=[logger_factory, response_factory])
     init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')
     add_static(app)

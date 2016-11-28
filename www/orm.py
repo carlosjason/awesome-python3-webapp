@@ -7,6 +7,13 @@ import asyncio,logging
 
 import aiomysql
 
+async def destroy_pool(): #销毁连接池
+    global __pool
+    if __pool is not None:
+        __pool.close()
+        await  __pool.wait_closed()
+
+
 def log(sql,args =()):
     logging.info('SQL: %s'%sql)
 
@@ -27,7 +34,10 @@ def create_pool(loop,**kw):
         loop = loop  
     )
 
+
+
     
+ 
 @asyncio.coroutine
 def select(sql,args,size=None):
     log(sql,args)    
@@ -42,9 +52,11 @@ def select(sql,args,size=None):
         logging.info('rows returnd %s'%len(rs))
         return rs
 
+
+        
 @asyncio.coroutine 
 def execute(sql,args,autocommit=True):
-    log(dql)
+    log(sql)
     with  (yield from __pool) as conn:
         if not autocommit:
             yield from conn.begin()
@@ -60,7 +72,6 @@ def execute(sql,args,autocommit=True):
                 yield from conn.rollback()
             raise    
         return affected
- 
 
 
  
@@ -138,7 +149,8 @@ class ModelMetaclass(type):
         attrs['__primary_key__'] = primarykey
         attrs['__fields__'] = fields 
         attrs['__select__'] = 'select `%s`, %s from `%s`'%(primarykey, ','.join(escaped_fields), tableName)  
-        attrs['__insert__'] = 'insert into `%s` (%s `%s`) values(%s)'%(tableName, ','.join(escaped_fields), primarykey, create_args_string(len(escaped_fields)+1))
+        #attrs['__insert__'] = 'insert into `%s` (%s `%s`) values(%s)'%(tableName, ','.join(escaped_fields), primarykey, create_args_string(len(escaped_fields)+1))
+        attrs['__insert__'] = 'insert into `%s` (%s, `%s`) values (%s)' % (tableName, ', '.join(escaped_fields), primarykey, create_args_string(len(escaped_fields) + 1))
         attrs['__update__'] = 'update `%s` set %s where `%s` = ?'%(tableName, ','.join(map(lambda f: '`%s`=?'%(mappings.get(f).name or f), fields)) ,primarykey)
         attrs['__delete__'] = 'delete from `%s` where `%s`=?'%(tableName, primarykey)
         return type.__new__(cls,name,bases, attrs)
@@ -158,11 +170,12 @@ class Model(dict, metaclass = ModelMetaclass):
         self[key] =value
    
    
-    def getValue(self,key):
+    def getValue(self, key):
         return getattr(self,key,None)
+    
             
     def getValueOrDefault(self,key):
-        value = getValue(self,key)
+        value = getattr(self,key,None)
         if value is None:
             field = self.__mappings__[key]
             if field.default is not None:
@@ -191,15 +204,15 @@ class Model(dict, metaclass = ModelMetaclass):
             sql.append('?')
             args.append(limit)
         elif isinstance(limit, tuple) and len(limit) == 2:
-            sql.append('? ?')
-            args.append(limit)
+            sql.append('?,?')
+            args.exetend(limit)
         else:
-            raise ValueError('Invalid limit value: %s'%str(limit))
+            raise ValueError('Invalid limit value: %s' % str(limit))
         rs = await select(' '.join(sql), args)
         return [cls(**r) for r in rs]    
                 
     @classmethod
-    async def findNumber(cls, selectField, where= None, args = None):
+    async def findNumber(cls, selectField = '*', where= None, args = None):
         'find number by select and number'
         sql = ['select %s _num_ from `%s`'%(selectField, cls.__table__)]
         if where:

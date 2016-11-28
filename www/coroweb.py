@@ -6,11 +6,6 @@ from apis import APIError
 #functools 修饰器
 
 
-
-
-
-
-
 def get(path):
     '''
     Define decorator @get('/path')
@@ -66,10 +61,10 @@ def has_var_kw_arg(fn): #有没有可变关键字
             return True
   
 def has_request_arg(fn): #有没有位置参数 或者 位置关键字参数
-    sig = inspect.signature(fn).parameters
+    sig = inspect.signature(fn)
     params = sig.parameters
     found = False
-    for name,param in sig.items():
+    for name,param in params.items():
         if name == 'request':
             found  = True
             continue
@@ -106,14 +101,14 @@ class RequestHandler(object): #viewer to controller
                 else:
                     return web.HTTPBadRequest('Unsupported Content - Type:%s'%request.content_type)
             if request.method == 'GET':
-                qs = request.query_string
+                qs = request.query_string #查询字符串·
                 if qs:
                     kw = dict()
-                    for k,v in parse.parse_qs(qs,True).items():
+                    for k,v in parse.parse_qs(qs,True).items(): # parse_qs 返回字典， (qs,True) 查询到为真
                         kw[k] = v[0]
                         
         if kw == None:
-            kw = dict(**request.match_info) #match_info主要是保存像@get('/blog/{id}')里面的id
+            kw = dict(**request.match_info) #match_info主要是保存像request中('/blog/{id}')里面的id
         else:
             if not self._has_var_kw_arg and self._named_kw_args:
                 copy = dict()
@@ -160,13 +155,9 @@ def add_route(app,fn):
         raise ValueError('@get or @past not defined in %s.'%str(fn))
     if not asyncio.iscoroutinefunction(fn) and not inspect.isgeneratorfunction(fn):
         fn = asyncio.coroutine(fn)
-    logging,info('add route %s %s => %s(%s)'%(method, path, fn.__name__, ','.join(inspect.signature(fn).parameters.keys())))
+    logging.info('add route %s %s => %s(%s)'%(method, path, fn.__name__, ','.join(inspect.signature(fn).parameters.keys())))
     app.router.add_route(method, path, RequestHandler(app,fn))
          
-
-
- 
-
 
 def add_routes(app,module_name):    
     n = module_name.rfind('.')  
@@ -181,7 +172,7 @@ def add_routes(app,module_name):
             continue
         fn = getattr(mod,attr)
         if callable(fn):
-            method = getattr(fn, '__method__', None) #__method__ 类似的可以直接访问
+            method = getattr(fn, '__method__', None) #__method__ 双下划线的可以直接访问
             path = getattr(fn, '__route__', None)
             if method and path:
                 add_route(app,fn)
