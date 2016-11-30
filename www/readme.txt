@@ -2,10 +2,10 @@ git add .
 git commit -m "这里填提交的提示内容"
 
 git push origin
-git push --set-upstream origin day10
+git push --set-upstream origin day11
 
 git checkout -b dev 创建切换
-git checkout -b day10
+git checkout -b day11
 git branch 查看分支
 git branch day7  创建
 git checkout day7 切换
